@@ -33,8 +33,14 @@ func (c *HAProxyController) monitorChanges() {
 	for _, namespace := range c.getWhitelistedNamespaces() {
 		factory := informers.NewSharedInformerFactoryWithOptions(c.k8s.API, c.Store.GetTimeFromAnnotation("cache-resync-period"), informers.WithNamespace(namespace))
 
-		pi := factory.Core().V1().Endpoints().Informer()
-		c.k8s.EventsEndpoints(c.eventChan, stop, pi)
+		var pi cache.SharedIndexInformer
+		if c.OSArgs.UseEndpointSlices {
+			pi = factory.Discovery().V1beta1().EndpointSlices().Informer()
+			c.k8s.EventsEndpointSlices(c.eventChan, stop, pi)
+		} else {
+			pi = factory.Core().V1().Endpoints().Informer()
+			c.k8s.EventsEndpoints(c.eventChan, stop, pi)
+		}
 
 		svci := factory.Core().V1().Services().Informer()
 		c.k8s.EventsServices(c.eventChan, c.statusChan, stop, svci, c.PublishService)
