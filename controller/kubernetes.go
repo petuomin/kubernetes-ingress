@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -162,6 +163,90 @@ func (k *K8s) EventsNamespaces(channel chan SyncDataEvent, stop chan struct{}, i
 		},
 	)
 	go informer.Run(stop)
+}
+
+func (k *K8s) EventsEndpointSlices(channel chan SyncDataEvent, stop chan struct{}, informer cache.SharedIndexInformer) {
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			item, err := k.convertToEndpointsFromEndpointsSlice(obj, ADDED)
+			if errors.Is(err, ErrIgnored) {
+				return
+			}
+			k.Logger.Tracef("%s %s: %s", ENDPOINTS, item.Status, item.Service)
+			channel <- SyncDataEvent{SyncType: ENDPOINTS, Namespace: item.Namespace, Data: item}
+		},
+		DeleteFunc: func(obj interface{}) {
+			item, err := k.convertToEndpointsFromEndpointsSlice(obj, DELETED)
+			if errors.Is(err, ErrIgnored) {
+				return
+			}
+			k.Logger.Tracef("%s %s: %s", ENDPOINTS, item.Status, item.Service)
+			channel <- SyncDataEvent{SyncType: ENDPOINTS, Namespace: item.Namespace, Data: item}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			item1, err := k.convertToEndpointsFromEndpointsSlice(oldObj, EMPTY)
+			if errors.Is(err, ErrIgnored) {
+				return
+			}
+			item2, _ := k.convertToEndpointsFromEndpointsSlice(newObj, MODIFIED)
+			if item2.Equal(item1) {
+				return
+			}
+			// fix modified state for ones that are deleted,new,same
+			k.Logger.Tracef("%s %s: %s", ENDPOINTS, item2.Status, item2.Service)
+			channel <- SyncDataEvent{SyncType: ENDPOINTS, Namespace: item2.Namespace, Data: item2}
+		},
+	})
+	go informer.Run(stop)
+}
+
+func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store.Status) (*store.Endpoints, error) {
+	data, ok := obj.(*discoveryv1beta1.EndpointSlice)
+	if !ok {
+		k.Logger.Errorf("%s: Invalid data from k8s api, %s", ENDPOINTS, obj)
+		return nil, ErrIgnored
+	}
+	labels := data.GetLabels()
+	serviceName := labels["kubernetes.io/service-name"]
+
+	if data.GetNamespace() == "kube-system" {
+		if serviceName == "kube-controller-manager" ||
+			serviceName == "kube-scheduler" ||
+			serviceName == "kubernetes-dashboard" ||
+			serviceName == "kube-dns" {
+			return nil, ErrIgnored
+		}
+	}
+
+	if data.ObjectMeta.GetDeletionTimestamp() != nil {
+		// detect slices that are in terminating state
+		status = DELETED
+	}
+
+	item := &store.Endpoints{
+		Namespace: data.GetNamespace(),
+		Service:   serviceName,
+		Ports:     make(map[string]*store.PortEndpoints),
+		Status:    status,
+	}
+
+	addresses := make(map[string]struct{})
+	for _, endpoints := range data.Endpoints {
+		for _, address := range endpoints.Addresses {
+			addresses[address] = struct{}{}
+		}
+	}
+
+	for _, port := range data.Ports {
+		item.Ports[*port.Name] = &store.PortEndpoints{
+			Port:        int64(*port.Port),
+			AddrCount:   len(addresses),
+			AddrNew:     addresses,
+			HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)),
+		}
+	}
+
+	return item, nil
 }
 
 func (k *K8s) EventsEndpoints(channel chan SyncDataEvent, stop chan struct{}, informer cache.SharedIndexInformer) {
