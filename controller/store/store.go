@@ -166,16 +166,14 @@ func (k K8s) GetNamespace(name string) *Namespace {
 		return namespace
 	}
 	newNamespace := &Namespace{
-		Name:         name,
-		Relevant:     k.isRelevantNamespace(name),
-		Endpoints:    make(map[string]map[string]*Endpoints),
-		Services:     make(map[string]*Service),
-		Ingresses:    make(map[string]*Ingress),
-		Secret:       make(map[string]*Secret),
-		Status:       ADDED,
-		HAProxySrvs:  make(map[string]map[string][]*HAProxySrv),
-		BackendName:  make(map[string]string),
-		NewAddresses: make(map[string]map[string]map[string]*Address),
+		Name:          name,
+		Relevant:      k.isRelevantNamespace(name),
+		Endpoints:     make(map[string]map[string]*Endpoints),
+		Services:      make(map[string]*Service),
+		Ingresses:     make(map[string]*Ingress),
+		Secret:        make(map[string]*Secret),
+		HAProxyConfig: make(map[string]*HAProxyConfig),
+		Status:        ADDED,
 	}
 	k.Namespaces[name] = newNamespace
 	return newNamespace

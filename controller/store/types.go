@@ -64,22 +64,24 @@ type Address struct {
 	Port    int64
 }
 
+// Auxilary data about the state of the HAProxy for a service
+type HAProxyConfig struct {
+	HAProxySrvs  map[string]*[]*HAProxySrv      // port -> slice of HAProxySrvs
+	NewAddresses map[string]map[string]*Address // port -> set of Addresses
+	BackendName  string                         // For runtime operations
+}
+
 // Namespace is useful data from k8s structures about namespace
 type Namespace struct {
 	_         [0]int
 	Name      string
 	Relevant  bool
 	Ingresses map[string]*Ingress
-	Endpoints map[string]map[string]*Endpoints // <- comes from endpoints, but slices nngh
+	Endpoints map[string]map[string]*Endpoints // service -> slice -> Endpoints
 	Services  map[string]*Service
 	Secret    map[string]*Secret
 
-	// we can't have individual slice based HAProxySrvs. Why? It must include all items for the syncing. Otherwise it's not possible to know what to disable.
-	HAProxySrvs map[string]map[string][]*HAProxySrv // service :: port :: slice of haproxysrv
-	BackendName map[string]string                   // For runtime operations, goes together with HAProxySrvs
-
-	// we can't have individual slice based NewAddresses. Why? Same as HAProxySrvs. We don't know what to items have been removed. The sync must have the full state of all slices available.
-	NewAddresses map[string]map[string]map[string]*Address // service :: port :: set of addr
+	HAProxyConfig map[string]*HAProxyConfig
 
 	Status Status
 }

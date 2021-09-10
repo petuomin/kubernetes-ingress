@@ -106,15 +106,13 @@ func (k *K8s) EventsNamespaces(channel chan SyncDataEvent, stop chan struct{}, i
 					status = DELETED
 				}
 				item := &store.Namespace{
-					Name:         data.GetName(),
-					Endpoints:    make(map[string]map[string]*store.Endpoints),
-					Services:     make(map[string]*store.Service),
-					Ingresses:    make(map[string]*store.Ingress),
-					Secret:       make(map[string]*store.Secret),
-					Status:       status,
-					HAProxySrvs:  make(map[string]map[string][]*store.HAProxySrv),
-					BackendName:  make(map[string]string),
-					NewAddresses: make(map[string]map[string]map[string]*store.Address),
+					Name:          data.GetName(),
+					Endpoints:     make(map[string]map[string]*store.Endpoints),
+					Services:      make(map[string]*store.Service),
+					Ingresses:     make(map[string]*store.Ingress),
+					Secret:        make(map[string]*store.Secret),
+					Status:        status,
+					HAProxyConfig: make(map[string]*store.HAProxyConfig),
 				}
 				k.Logger.Tracef("%s %s: %s", NAMESPACE, item.Status, item.Name)
 				channel <- SyncDataEvent{SyncType: NAMESPACE, Namespace: item.Name, Data: item}
@@ -127,15 +125,13 @@ func (k *K8s) EventsNamespaces(channel chan SyncDataEvent, stop chan struct{}, i
 				}
 				status := DELETED
 				item := &store.Namespace{
-					Name:         data.GetName(),
-					Endpoints:    make(map[string]map[string]*store.Endpoints),
-					Services:     make(map[string]*store.Service),
-					Ingresses:    make(map[string]*store.Ingress),
-					Secret:       make(map[string]*store.Secret),
-					Status:       status,
-					HAProxySrvs:  make(map[string]map[string][]*store.HAProxySrv),
-					BackendName:  make(map[string]string),
-					NewAddresses: make(map[string]map[string]map[string]*store.Address),
+					Name:          data.GetName(),
+					Endpoints:     make(map[string]map[string]*store.Endpoints),
+					Services:      make(map[string]*store.Service),
+					Ingresses:     make(map[string]*store.Ingress),
+					Secret:        make(map[string]*store.Secret),
+					Status:        status,
+					HAProxyConfig: make(map[string]*store.HAProxyConfig),
 				}
 				k.Logger.Tracef("%s %s: %s", NAMESPACE, item.Status, item.Name)
 				channel <- SyncDataEvent{SyncType: NAMESPACE, Namespace: item.Name, Data: item}

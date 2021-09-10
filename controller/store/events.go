@@ -203,26 +203,26 @@ func (k *K8s) EventIngress(ns *Namespace, data *Ingress, controllerClass string)
 	return updateRequired
 }
 
-func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs func(backendName string, haproxysrvs []*HAProxySrv, newAddresses map[string]*Address) error) (updateRequired bool) {
+func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs func(backendName string, haproxysrvs *[]*HAProxySrv, newAddresses map[string]*Address) error) (updateRequired bool) {
 	switch data.Status {
 	case MODIFIED:
 
 		newEndpoints := data
+		//oldEndpoints := ns.Endpoints[data.Service][data.SliceName]
 
-		_, ok := ns.Endpoints[data.Service]
-		if !ok {
-			ns.Endpoints[data.Service] = make(map[string]*Endpoints)
-		}
+		// TODO: implement check if newEndpoints == old
+		// no need to sync if nothing relevant changed.
+
 		ns.Endpoints[data.Service][data.SliceName] = newEndpoints
 
-		backendName := ns.BackendName[data.Service]
+		backendName := ns.HAProxyConfig[data.Service].BackendName
 
-		ns.NewAddresses[data.Service] = extractAddressMap(ns.Endpoints[data.Service])
+		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])
 
-		for portName := range ns.NewAddresses[data.Service] {
-			portAddresses := ns.NewAddresses[data.Service][portName]
-			porthaproxysrvs := ns.HAProxySrvs[data.Service][portName]
-			logger.Warning(syncHAproxySrvs(backendName, porthaproxysrvs, portAddresses))
+		for portName := range ns.HAProxyConfig[data.Service].NewAddresses {
+			portAddresses := ns.HAProxyConfig[data.Service].NewAddresses[portName]
+			portHAProxySrvs := ns.HAProxyConfig[data.Service].HAProxySrvs[portName]
+			logger.Warning(syncHAproxySrvs(backendName, portHAProxySrvs, portAddresses))
 		}
 
 		return true
@@ -243,7 +243,13 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 		}
 		ns.Endpoints[data.Service][data.SliceName] = data
 
-		ns.NewAddresses[data.Service] = extractAddressMap(ns.Endpoints[data.Service])
+		if ns.HAProxyConfig[data.Service] == nil {
+			ns.HAProxyConfig[data.Service] = &HAProxyConfig{
+				HAProxySrvs:  make(map[string]*[]*HAProxySrv),
+				NewAddresses: make(map[string]map[string]*Address),
+			}
+		}
+		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])
 
 	case DELETED:
 		oldData, ok := ns.Endpoints[data.Service][data.SliceName]
@@ -262,8 +268,7 @@ func extractAddressMap(endpointSlices map[string]*Endpoints) (addressMap map[str
 	for sliceName := range endpointSlices {
 		for portName, PortEndpoints := range endpointSlices[sliceName].Ports {
 			for addr := range endpointSlices[sliceName].Ports[portName].AddrNew {
-				_, ok := newAddresses[portName]
-				if !ok {
+				if newAddresses[portName] == nil {
 					newAddresses[portName] = make(map[string]*Address)
 				}
 				newAddresses[portName][addr] = &Address{Address: addr, Port: PortEndpoints.Port}

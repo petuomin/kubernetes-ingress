@@ -30,7 +30,7 @@ import (
 )
 
 // HandleEndpoints lookups the IngressPath related endpoints and handles corresponding backend servers configuration in HAProxy
-func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, store store.K8s, certs *haproxy.Certificates) (reload bool) {
+func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, k8sStore store.K8s, certs *haproxy.Certificates) (reload bool) {
 	var srvsScaled, srvsActiveAnn bool
 	var srv, oldSrv *models.Server
 	/*endpoints, err := s.getEndpoints(store)
@@ -40,25 +40,31 @@ func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, store store.K8s, 
 	}
 	*/
 
-	ns := store.Namespaces[s.service.Namespace]
+	ns := k8sStore.Namespaces[s.service.Namespace]
 	if ns == nil {
 		logger.Warningf("Ingress '%s/%s': Not found", s.ingress.Namespace, s.ingress.Name)
 		return
 	}
 	sp := s.path.SvcPortResolved
-	// set backendName in store for runtime updates.
 
-	ns.BackendName[s.service.Name] = s.backendName
-	newAddresses := ns.NewAddresses[s.service.Name][sp.Name]
-	HAProxySrvs := ns.HAProxySrvs[s.service.Name][sp.Name]
+	// set backendName in store for runtime updates.
+	ns.HAProxyConfig[s.service.Name].BackendName = s.backendName
+
+	newAddresses := ns.HAProxyConfig[s.service.Name].NewAddresses[sp.Name]
+
+	if ns.HAProxyConfig[s.service.Name].HAProxySrvs[sp.Name] == nil {
+		tmp := make([]*store.HAProxySrv, 0, len(newAddresses))
+		ns.HAProxyConfig[s.service.Name].HAProxySrvs[sp.Name] = &tmp
+	}
+	HAProxySrvs := ns.HAProxyConfig[s.service.Name].HAProxySrvs[sp.Name]
 
 	if s.service.DNS == "" {
-		srvsScaled = s.scaleHAProxySrvs(&newAddresses, &HAProxySrvs, store)
+		srvsScaled = s.scaleHAProxySrvs(&newAddresses, HAProxySrvs, k8sStore)
 	}
 	srv = &models.Server{}
 	annotations.HandleServerAnnotations(
 		srv,
-		store,
+		k8sStore,
 		client,
 		certs,
 		s.service.Annotations,
@@ -74,7 +80,7 @@ func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, store store.K8s, 
 			logger.Debugf("Ingress '%s/%s': server options for backend '%s' were updated:%s\nReload required", s.ingress.Namespace, s.ingress.Name, s.backendName, result)
 		}
 	}
-	for _, srvSlot := range HAProxySrvs {
+	for _, srvSlot := range *HAProxySrvs {
 		if srvSlot.Modified || s.newBackend || srvsActiveAnn {
 			logger.Debugf("\nName: %s  Address: %s  Port: %s", srvSlot.Name, srvSlot.Address, srvSlot.Port)
 
