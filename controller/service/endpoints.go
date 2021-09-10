@@ -111,7 +111,7 @@ func (s *SvcContext) updateHAProxySrv(client api.HAProxyClient, srv models.Serve
 	}
 	// Create server
 	if strings.Contains(errAPI.Error(), "does not exist") {
-		logger.Tracef("Creating server '%s/%s'", s.backendName, srv.Name)
+		logger.Tracef("Updating server '%s/%s' %s", s.backendName, srv.Name, srv.Port)
 		logger.Error(client.BackendServerCreate(s.backendName, srv))
 	}
 }
@@ -141,6 +141,7 @@ func (s *SvcContext) scaleHAProxySrvs(newAddresses *map[string]*store.Address, H
 			Name:     fmt.Sprintf("SRV_%d", len(*HAProxySrvs)+1),
 			Address:  "",
 			Modified: true,
+			Port:     1,
 		}
 		*HAProxySrvs = append(*HAProxySrvs, srv)
 		disabled = append(disabled, srv)

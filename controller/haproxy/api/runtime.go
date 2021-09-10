@@ -51,6 +51,7 @@ func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store
 			// if entry in HAProxySrvs didn't exist in the AddrNew, then disable the haproxySrv entry
 			(*haproxySrvs)[i].Address = ""
 			(*haproxySrvs)[i].Modified = true
+			(*haproxySrvs)[i].Port = 1
 			disabled = append(disabled, srv)
 		}
 	}
