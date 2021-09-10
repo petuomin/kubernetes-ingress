@@ -106,12 +106,13 @@ func (k *K8s) EventsNamespaces(channel chan SyncDataEvent, stop chan struct{}, i
 					status = DELETED
 				}
 				item := &store.Namespace{
-					Name:      data.GetName(),
-					Endpoints: make(map[string]*store.Endpoints),
-					Services:  make(map[string]*store.Service),
-					Ingresses: make(map[string]*store.Ingress),
-					Secret:    make(map[string]*store.Secret),
-					Status:    status,
+					Name:          data.GetName(),
+					Endpoints:     make(map[string]map[string]*store.Endpoints),
+					Services:      make(map[string]*store.Service),
+					Ingresses:     make(map[string]*store.Ingress),
+					Secret:        make(map[string]*store.Secret),
+					Status:        status,
+					HAProxyConfig: make(map[string]*store.HAProxyConfig),
 				}
 				k.Logger.Tracef("%s %s: %s", NAMESPACE, item.Status, item.Name)
 				channel <- SyncDataEvent{SyncType: NAMESPACE, Namespace: item.Name, Data: item}
@@ -124,12 +125,13 @@ func (k *K8s) EventsNamespaces(channel chan SyncDataEvent, stop chan struct{}, i
 				}
 				status := DELETED
 				item := &store.Namespace{
-					Name:      data.GetName(),
-					Endpoints: make(map[string]*store.Endpoints),
-					Services:  make(map[string]*store.Service),
-					Ingresses: make(map[string]*store.Ingress),
-					Secret:    make(map[string]*store.Secret),
-					Status:    status,
+					Name:          data.GetName(),
+					Endpoints:     make(map[string]map[string]*store.Endpoints),
+					Services:      make(map[string]*store.Service),
+					Ingresses:     make(map[string]*store.Ingress),
+					Secret:        make(map[string]*store.Secret),
+					Status:        status,
+					HAProxyConfig: make(map[string]*store.HAProxyConfig),
 				}
 				k.Logger.Tracef("%s %s: %s", NAMESPACE, item.Status, item.Name)
 				channel <- SyncDataEvent{SyncType: NAMESPACE, Namespace: item.Name, Data: item}
@@ -224,6 +226,7 @@ func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store
 	}
 
 	item := &store.Endpoints{
+		SliceName: data.Name,
 		Namespace: data.GetNamespace(),
 		Service:   serviceName,
 		Ports:     make(map[string]*store.PortEndpoints),
@@ -239,11 +242,19 @@ func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store
 
 	for _, port := range data.Ports {
 		item.Ports[*port.Name] = &store.PortEndpoints{
-			Port:        int64(*port.Port),
-			AddrCount:   len(addresses),
-			AddrNew:     addresses,
-			HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)),
+			Port:      int64(*port.Port),
+			AddrCount: len(addresses),
+			AddrNew:   addresses,
+			//HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)), HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)),
 		}
+	}
+	if len(data.Endpoints) > 0 {
+		if data.Endpoints[0].NodeName != nil {
+			k.Logger.Infof("%s NodeName: %s Topology: %s", ENDPOINTS, data.Endpoints[0].NodeName, data.Endpoints[0].Topology["kubernetes.io/hostname"])
+		} else {
+			k.Logger.Infof("%s NodeName: (nil) Topology: %s", ENDPOINTS, data.Endpoints[0].Topology["kubernetes.io/hostname"])
+		}
+
 	}
 
 	return item, nil
@@ -315,10 +326,9 @@ func (k *K8s) convertToEndpoints(obj interface{}, status store.Status) (*store.E
 				addresses[address.IP] = struct{}{}
 			}
 			item.Ports[port.Name] = &store.PortEndpoints{
-				Port:        int64(port.Port),
-				AddrCount:   len(addresses),
-				AddrNew:     addresses,
-				HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)),
+				Port:      int64(port.Port),
+				AddrCount: len(addresses),
+				AddrNew:   addresses,
 			}
 		}
 	}
