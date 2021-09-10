@@ -245,14 +245,6 @@ func (oldE *PortEndpoints) Equal(newE *PortEndpoints) bool {
 	if oldE.AddrCount != newE.AddrCount {
 		return false
 	}
-	for _, srv := range oldE.HAProxySrvs {
-		if srv.Address == "" {
-			continue
-		}
-		if _, ok := newE.AddrNew[srv.Address]; !ok {
-			return false
-		}
-	}
 	for addr := range oldE.AddrNew {
 		if _, ok := newE.AddrNew[addr]; !ok {
 			return false

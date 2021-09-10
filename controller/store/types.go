@@ -27,23 +27,24 @@ type HAProxySrv struct {
 	Name     string
 	Address  string
 	Modified bool
+	Port     int64
 }
 
 // PortEndpoints describes endpoints of a service port
 type PortEndpoints struct {
-	Port            int64
-	BackendName     string // For runtime operations
+	Port int64
+	//BackendName     string // For runtime operations
 	DynUpdateFailed bool
 	AddrCount       int
 	AddrNew         map[string]struct{}
-	HAProxySrvs     []*HAProxySrv
 }
 
 // Endpoints describes endpoints of a service
 type Endpoints struct {
+	SliceName string
 	Namespace string
 	Service   string
-	Ports     map[string]*PortEndpoints
+	Ports     map[string]*PortEndpoints // Ports[portName]
 	Status    Status
 }
 
@@ -58,16 +59,29 @@ type Service struct {
 	Status      Status
 }
 
+type Address struct {
+	Address string
+	Port    int64
+}
+
 // Namespace is useful data from k8s structures about namespace
 type Namespace struct {
 	_         [0]int
 	Name      string
 	Relevant  bool
 	Ingresses map[string]*Ingress
-	Endpoints map[string]*Endpoints
+	Endpoints map[string]map[string]*Endpoints // <- comes from endpoints, but slices nngh
 	Services  map[string]*Service
 	Secret    map[string]*Secret
-	Status    Status
+
+	// we can't have individual slice based HAProxySrvs. Why? It must include all items for the syncing. Otherwise it's not possible to know what to disable.
+	HAProxySrvs map[string]map[string][]*HAProxySrv // service :: port :: slice of haproxysrv
+	BackendName map[string]string                   // For runtime operations, goes together with HAProxySrvs
+
+	// we can't have individual slice based NewAddresses. Why? Same as HAProxySrvs. We don't know what to items have been removed. The sync must have the full state of all slices available.
+	NewAddresses map[string]map[string]map[string]*Address // service :: port :: set of addr
+
+	Status Status
 }
 
 type IngressClass struct {
