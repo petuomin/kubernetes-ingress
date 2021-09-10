@@ -106,7 +106,7 @@ func (s *SvcContext) updateHAProxySrv(client api.HAProxyClient, srv models.Serve
 	// Update server
 	errAPI := client.BackendServerEdit(s.backendName, srv)
 	if errAPI == nil {
-		logger.Tracef("Updating server '%s/%s'", s.backendName, srv.Name)
+		logger.Tracef("Updating server '%s/%s' %s", s.backendName, srv.Name, srv.Port)
 		return
 	}
 	// Create server
