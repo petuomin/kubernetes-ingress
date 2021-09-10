@@ -82,9 +82,9 @@ func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, k8sStore store.K8
 	}
 	for _, srvSlot := range *HAProxySrvs {
 		if srvSlot.Modified || s.newBackend || srvsActiveAnn {
-			logger.Debugf("\nName: %s  Address: %s  Port: %s", srvSlot.Name, srvSlot.Address, srvSlot.Port)
+			logger.Debugf("Name: %s  Address: %s  Port: %s", srvSlot.Name, srvSlot.Address, srvSlot.Port)
 
-			s.updateHAProxySrv(client, *srv, *srvSlot, sp.Port)
+			s.updateHAProxySrv(client, *srv, *srvSlot, srvSlot.Port)
 		}
 	}
 
@@ -152,16 +152,18 @@ func (s *SvcContext) scaleHAProxySrvs(newAddresses *map[string]*store.Address, H
 	}
 	// Configure remaining addresses in available HAProxySrvs
 	flag = false
-	for addr := range *newAddresses {
+	for addr, Address := range *newAddresses {
 		if len(disabled) != 0 {
 			disabled[0].Address = addr
 			disabled[0].Modified = true
+			disabled[0].Port = Address.Port
 			disabled = disabled[1:]
 		} else {
 			srv := &store.HAProxySrv{
 				Name:     fmt.Sprintf("SRV_%d", len(*HAProxySrvs)+1),
 				Address:  addr,
 				Modified: true,
+				Port:     Address.Port,
 			}
 			*HAProxySrvs = append(*HAProxySrvs, srv)
 			flag = true
