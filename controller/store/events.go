@@ -215,13 +215,12 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 
 		ns.Endpoints[data.Service][data.SliceName] = newEndpoints
 
-		backendName := ns.HAProxyConfig[data.Service].BackendName
-
 		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])
 
 		for portName := range ns.HAProxyConfig[data.Service].NewAddresses {
 			portAddresses := ns.HAProxyConfig[data.Service].NewAddresses[portName]
 			portHAProxySrvs := ns.HAProxyConfig[data.Service].HAProxySrvs[portName]
+			backendName := ns.HAProxyConfig[data.Service].BackendName[portName]
 			logger.Warning(syncHAproxySrvs(backendName, portHAProxySrvs, portAddresses))
 		}
 
@@ -247,6 +246,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 			ns.HAProxyConfig[data.Service] = &HAProxyConfig{
 				HAProxySrvs:  make(map[string]*[]*HAProxySrv),
 				NewAddresses: make(map[string]map[string]*Address),
+				BackendName:  make(map[string]string),
 			}
 		}
 		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])

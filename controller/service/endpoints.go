@@ -48,7 +48,7 @@ func (s *SvcContext) HandleEndpoints(client api.HAProxyClient, k8sStore store.K8
 	sp := s.path.SvcPortResolved
 
 	// set backendName in store for runtime updates.
-	ns.HAProxyConfig[s.service.Name].BackendName = s.backendName
+	ns.HAProxyConfig[s.service.Name].BackendName[sp.Name] = s.backendName
 
 	newAddresses := ns.HAProxyConfig[s.service.Name].NewAddresses[sp.Name]
 

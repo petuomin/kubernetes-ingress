@@ -68,7 +68,7 @@ type Address struct {
 type HAProxyConfig struct {
 	HAProxySrvs  map[string]*[]*HAProxySrv      // port -> slice of HAProxySrvs
 	NewAddresses map[string]map[string]*Address // port -> set of Addresses
-	BackendName  string                         // For runtime operations
+	BackendName  map[string]string              // port -> For runtime operations
 }
 
 // Namespace is useful data from k8s structures about namespace
