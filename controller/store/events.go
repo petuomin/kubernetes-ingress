@@ -208,10 +208,11 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 	case MODIFIED:
 
 		newEndpoints := data
-		//oldEndpoints := ns.Endpoints[data.Service][data.SliceName]
+		oldEndpoints := ns.Endpoints[data.Service][data.SliceName]
 
-		// TODO: implement check if newEndpoints == old
-		// no need to sync if nothing relevant changed.
+		if oldEndpoints.Equal(newEndpoints) {
+			return false
+		}
 
 		ns.Endpoints[data.Service][data.SliceName] = newEndpoints
 
