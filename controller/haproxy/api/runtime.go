@@ -37,21 +37,24 @@ func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store
 		return nil
 	}
 
-	portChanged := false // newEndpoints.Port != oldEndpoints.Port
 	// Disable stale entries from HAProxySrvs
 	// and provide list of Disabled Srvs
 	var disabled []*store.HAProxySrv
 	var errors utils.Errors
 	// Delete any item from AddrNew that existed already in HAProxySrvs
 	for i, srv := range *haproxySrvs {
-		srv.Modified = portChanged || srv.Modified
 		if _, ok := newAddresses[srv.Address]; ok {
+
+			if srv.Port != newAddresses[srv.Address].Port {
+				srv.Modified = true
+				srv.Port = newAddresses[srv.Address].Port
+			}
+
 			delete(newAddresses, srv.Address)
 		} else {
 			// if entry in HAProxySrvs didn't exist in the AddrNew, then disable the haproxySrv entry
 			(*haproxySrvs)[i].Address = ""
 			(*haproxySrvs)[i].Modified = true
-			(*haproxySrvs)[i].Port = 1
 			disabled = append(disabled, srv)
 		}
 	}
