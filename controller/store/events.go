@@ -215,7 +215,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 
 		ns.Endpoints[data.Service][data.SliceName] = newEndpoints
 
-		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])
+		ns.HAProxyConfig[data.Service].NewAddresses = getAddressMap(ns.Endpoints[data.Service])
 
 		for portName := range ns.HAProxyConfig[data.Service].NewAddresses {
 			portAddresses := ns.HAProxyConfig[data.Service].NewAddresses[portName]
@@ -249,7 +249,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 				BackendName:  make(map[string]string),
 			}
 		}
-		ns.HAProxyConfig[data.Service].NewAddresses = extractAddressMap(ns.Endpoints[data.Service])
+		ns.HAProxyConfig[data.Service].NewAddresses = getAddressMap(ns.Endpoints[data.Service])
 
 	case DELETED:
 		oldData, ok := ns.Endpoints[data.Service][data.SliceName]
@@ -263,7 +263,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 	return updateRequired
 }
 
-func extractAddressMap(endpointSlices map[string]*Endpoints) (addressMap map[string]map[string]*Address) {
+func getAddressMap(endpointSlices map[string]*Endpoints) (addressMap map[string]map[string]*Address) {
 	newAddresses := make(map[string]map[string]*Address)
 	for sliceName := range endpointSlices {
 		for portName, PortEndpoints := range endpointSlices[sliceName].Ports {
