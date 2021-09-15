@@ -203,7 +203,7 @@ func (k *K8s) EventIngress(ns *Namespace, data *Ingress, controllerClass string)
 	return updateRequired
 }
 
-func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs func(backendName string, haproxysrvs *[]*HAProxySrv, newAddresses map[string]*Address) error) (updateRequired bool) {
+func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs func(backendName string, haproxysrvs []*HAProxySrv, newAddresses map[string]*Address) error) (updateRequired bool) {
 	switch data.Status {
 	case MODIFIED:
 
@@ -220,7 +220,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 
 		for portName := range ns.HAProxyConfig[data.Service].NewAddresses {
 			portAddresses := ns.HAProxyConfig[data.Service].NewAddresses[portName]
-			portHAProxySrvs := ns.HAProxyConfig[data.Service].HAProxySrvs[portName]
+			portHAProxySrvs := *ns.HAProxyConfig[data.Service].HAProxySrvs[portName]
 			backendName := ns.HAProxyConfig[data.Service].BackendName[portName]
 			logger.Warning(syncHAproxySrvs(backendName, portHAProxySrvs, portAddresses))
 		}

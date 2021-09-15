@@ -32,7 +32,7 @@ func (c *clientNative) GetMap(mapFile string) (*models.Map, error) {
 }
 
 // SyncBackendSrvs syncs states and addresses of a backend servers with corresponding endpoints.
-func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store.HAProxySrv, newAddresses map[string]*store.Address) error {
+func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs []*store.HAProxySrv, newAddresses map[string]*store.Address) error {
 	if BackendName == "" {
 		return nil
 	}
@@ -42,7 +42,7 @@ func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store
 	var disabled []*store.HAProxySrv
 	var errors utils.Errors
 	// Delete any item from AddrNew that existed already in HAProxySrvs
-	for i, srv := range *haproxySrvs {
+	for i, srv := range haproxySrvs {
 		if _, ok := newAddresses[srv.Address]; ok {
 
 			if srv.Port != newAddresses[srv.Address].Port {
@@ -53,8 +53,8 @@ func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store
 			delete(newAddresses, srv.Address)
 		} else {
 			// if entry in HAProxySrvs didn't exist in the AddrNew, then disable the haproxySrv entry
-			(*haproxySrvs)[i].Address = ""
-			(*haproxySrvs)[i].Modified = true
+			haproxySrvs[i].Address = ""
+			haproxySrvs[i].Modified = true
 			disabled = append(disabled, srv)
 		}
 	}
@@ -72,7 +72,7 @@ func (c *clientNative) SyncBackendSrvs(BackendName string, haproxySrvs *[]*store
 	}
 	// Dynamically updates HAProxy backend servers  with HAProxySrvs content
 	var addrErr, stateErr error
-	for _, srv := range *haproxySrvs {
+	for _, srv := range haproxySrvs {
 		if !srv.Modified {
 			continue
 		}
