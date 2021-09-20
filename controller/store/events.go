@@ -220,6 +220,10 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 
 		for portName := range ns.HAProxyConfig[data.Service].NewAddresses {
 			portAddresses := ns.HAProxyConfig[data.Service].NewAddresses[portName]
+			if ns.HAProxyConfig[data.Service].HAProxySrvs[portName] == nil {
+				tmp := make([]*HAProxySrv, 0, len(portAddresses))
+				ns.HAProxyConfig[data.Service].HAProxySrvs[portName] = &tmp
+			}
 			portHAProxySrvs := *ns.HAProxyConfig[data.Service].HAProxySrvs[portName]
 			backendName := ns.HAProxyConfig[data.Service].BackendName[portName]
 			logger.Warning(syncHAproxySrvs(backendName, portHAProxySrvs, portAddresses))
