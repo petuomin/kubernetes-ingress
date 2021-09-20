@@ -105,6 +105,12 @@ unit-tests:
   only:
     - merge_requests
     - branches
+k8s_18:
+  only:
+    - schedules
+  variables:
+    K8S_VERSION: v1.18.19
+  extends: .kind_deployment
 k8s_19:
   only:
     - schedules
