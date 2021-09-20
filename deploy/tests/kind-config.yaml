@@ -24,4 +24,4 @@ nodes:
       kind: ClusterConfiguration
       controllerManager:
           extraArgs:
-            max-endpoints-per-slice: "10"
+            max-endpoints-per-slice: "5"
