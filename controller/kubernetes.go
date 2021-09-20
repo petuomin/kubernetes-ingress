@@ -18,6 +18,7 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -203,61 +204,97 @@ func (k *K8s) EventsEndpointSlices(channel chan SyncDataEvent, stop chan struct{
 }
 
 func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store.Status) (*store.Endpoints, error) {
-	data, ok := obj.(*discoveryv1beta1.EndpointSlice)
-	if !ok {
+
+	var item *store.Endpoints
+	getServiceName := func(labels map[string]string) string {
+		return labels["kubernetes.io/service-name"]
+	}
+
+	shouldIgnoreObject := func(namespace string, labels map[string]string) bool {
+		serviceName := getServiceName(labels)
+		if namespace == "kube-system" {
+			if serviceName == "kube-controller-manager" ||
+				serviceName == "kube-scheduler" ||
+				serviceName == "kubernetes-dashboard" ||
+				serviceName == "kube-dns" {
+				return true
+
+			}
+		}
+		return false
+	}
+
+	switch data := obj.(type) {
+	case *discoveryv1beta1.EndpointSlice:
+
+		if shouldIgnoreObject(data.GetNamespace(), data.GetLabels()) {
+			return nil, ErrIgnored
+		}
+		if data.ObjectMeta.GetDeletionTimestamp() != nil {
+			// detect slices that are in terminating state
+			status = DELETED
+		}
+		item = &store.Endpoints{
+			SliceName: data.Name,
+			Namespace: data.GetNamespace(),
+			Service:   getServiceName(data.GetLabels()),
+			Ports:     make(map[string]*store.PortEndpoints),
+			Status:    status,
+		}
+
+		addresses := make(map[string]struct{})
+		for _, endpoints := range data.Endpoints {
+			for _, address := range endpoints.Addresses {
+				addresses[address] = struct{}{}
+			}
+		}
+
+		for _, port := range data.Ports {
+			item.Ports[*port.Name] = &store.PortEndpoints{
+				Port:      int64(*port.Port),
+				AddrCount: len(addresses),
+				AddrNew:   addresses,
+			}
+		}
+		return item, nil
+
+	case *discoveryv1.EndpointSlice:
+
+		if shouldIgnoreObject(data.GetNamespace(), data.GetLabels()) {
+			return nil, ErrIgnored
+		}
+		if data.ObjectMeta.GetDeletionTimestamp() != nil {
+			// detect slices that are in terminating state
+			status = DELETED
+		}
+		item = &store.Endpoints{
+			SliceName: data.Name,
+			Namespace: data.GetNamespace(),
+			Service:   getServiceName(data.GetLabels()),
+			Ports:     make(map[string]*store.PortEndpoints),
+			Status:    status,
+		}
+
+		addresses := make(map[string]struct{})
+		for _, endpoints := range data.Endpoints {
+			for _, address := range endpoints.Addresses {
+				addresses[address] = struct{}{}
+			}
+		}
+
+		for _, port := range data.Ports {
+			item.Ports[*port.Name] = &store.PortEndpoints{
+				Port:      int64(*port.Port),
+				AddrCount: len(addresses),
+				AddrNew:   addresses,
+			}
+		}
+		return item, nil
+
+	default:
 		k.Logger.Errorf("%s: Invalid data from k8s api, %s", ENDPOINTS, obj)
 		return nil, ErrIgnored
 	}
-	labels := data.GetLabels()
-	serviceName := labels["kubernetes.io/service-name"]
-
-	if data.GetNamespace() == "kube-system" {
-		if serviceName == "kube-controller-manager" ||
-			serviceName == "kube-scheduler" ||
-			serviceName == "kubernetes-dashboard" ||
-			serviceName == "kube-dns" {
-			return nil, ErrIgnored
-		}
-	}
-
-	if data.ObjectMeta.GetDeletionTimestamp() != nil {
-		// detect slices that are in terminating state
-		status = DELETED
-	}
-
-	item := &store.Endpoints{
-		SliceName: data.Name,
-		Namespace: data.GetNamespace(),
-		Service:   serviceName,
-		Ports:     make(map[string]*store.PortEndpoints),
-		Status:    status,
-	}
-
-	addresses := make(map[string]struct{})
-	for _, endpoints := range data.Endpoints {
-		for _, address := range endpoints.Addresses {
-			addresses[address] = struct{}{}
-		}
-	}
-
-	for _, port := range data.Ports {
-		item.Ports[*port.Name] = &store.PortEndpoints{
-			Port:      int64(*port.Port),
-			AddrCount: len(addresses),
-			AddrNew:   addresses,
-			//HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)), HAProxySrvs: make([]*store.HAProxySrv, 0, len(addresses)),
-		}
-	}
-	if len(data.Endpoints) > 0 {
-		if data.Endpoints[0].NodeName != nil {
-			k.Logger.Infof("%s NodeName: %s Topology: %s", ENDPOINTS, data.Endpoints[0].NodeName, data.Endpoints[0].Topology["kubernetes.io/hostname"])
-		} else {
-			k.Logger.Infof("%s NodeName: (nil) Topology: %s", ENDPOINTS, data.Endpoints[0].Topology["kubernetes.io/hostname"])
-		}
-
-	}
-
-	return item, nil
 }
 
 func (k *K8s) EventsEndpoints(channel chan SyncDataEvent, stop chan struct{}, informer cache.SharedIndexInformer) {
