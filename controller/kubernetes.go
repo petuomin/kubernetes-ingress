@@ -205,7 +205,6 @@ func (k *K8s) EventsEndpointSlices(channel chan SyncDataEvent, stop chan struct{
 
 func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store.Status) (*store.Endpoints, error) {
 
-	var item *store.Endpoints
 	getServiceName := func(labels map[string]string) string {
 		return labels["kubernetes.io/service-name"]
 	}
@@ -234,7 +233,8 @@ func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store
 			// detect slices that are in terminating state
 			status = DELETED
 		}
-		item = &store.Endpoints{
+
+		item := &store.Endpoints{
 			SliceName: data.Name,
 			Namespace: data.GetNamespace(),
 			Service:   getServiceName(data.GetLabels()),
@@ -267,7 +267,8 @@ func (k *K8s) convertToEndpointsFromEndpointsSlice(obj interface{}, status store
 			// detect slices that are in terminating state
 			status = DELETED
 		}
-		item = &store.Endpoints{
+
+		item := &store.Endpoints{
 			SliceName: data.Name,
 			Namespace: data.GetNamespace(),
 			Service:   getServiceName(data.GetLabels()),

@@ -63,7 +63,7 @@ type Address struct {
 	Port    int64
 }
 
-// Auxilary data about the state of the HAProxy for a service
+// Auxiliary data about the state of the HAProxy for a service
 type HAProxyConfig struct {
 	HAProxySrvs  map[string]*[]*HAProxySrv      // port -> slice of HAProxySrvs
 	NewAddresses map[string]map[string]*Address // port -> set of Addresses
