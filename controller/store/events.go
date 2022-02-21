@@ -229,6 +229,7 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 	if _, ok := ns.Endpoints[data.Service]; !ok {
 		ns.Endpoints[data.Service] = make(map[string]*Endpoints)
 	}
+
 	if endpoints, ok := ns.Endpoints[data.Service][data.SliceName]; ok {
 		if data.Status != DELETED && endpoints.Equal(data) {
 			return false
@@ -236,23 +237,29 @@ func (k *K8s) EventEndpoints(ns *Namespace, data *Endpoints, syncHAproxySrvs fun
 	}
 	ns.Endpoints[data.Service][data.SliceName] = data
 
-	endpoints := getEndpoints(ns.Endpoints[data.Service])
-	_, ok := ns.HAProxyRuntime[data.Service]
+	return true
+}
+
+func (k *K8s) SyncEndpoints(ns *Namespace, service string, syncHAproxySrvs func(backend *RuntimeBackend, portUpdated bool) error) {
+	endpoints := getEndpoints(ns.Endpoints[service])
+
+	_, ok := ns.HAProxyRuntime[service]
 	if !ok || len(endpoints) == 0 {
-		ns.HAProxyRuntime[data.Service] = make(map[string]*RuntimeBackend)
+		ns.HAProxyRuntime[service] = make(map[string]*RuntimeBackend)
 	}
 	for portName, portEndpoints := range endpoints {
 		newBackend := &RuntimeBackend{Endpoints: portEndpoints}
-		backend, ok := ns.HAProxyRuntime[data.Service][portName]
+		backend, ok := ns.HAProxyRuntime[service][portName]
 		if ok {
-			portUpdated := (newBackend.Endpoints.Port != backend.Endpoints.Port)
+
 			newBackend.HAProxySrvs = backend.HAProxySrvs
 			newBackend.Name = backend.Name
+			portUpdated := (newBackend.Endpoints.Port != backend.Endpoints.Port)
 			logger.Warning(syncHAproxySrvs(newBackend, portUpdated))
+
 		}
-		ns.HAProxyRuntime[data.Service][portName] = newBackend
+		ns.HAProxyRuntime[service][portName] = newBackend
 	}
-	return true
 }
 
 func (k *K8s) EventService(ns *Namespace, data *Service) (updateRequired bool) {

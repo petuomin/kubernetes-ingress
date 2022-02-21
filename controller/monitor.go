@@ -93,15 +93,28 @@ func (c *HAProxyController) monitorChanges() {
 	}
 }
 
+type EndpointSyncEnvironment struct {
+	Service   string
+	Namespace *store.Namespace
+}
+
 // SyncData gets all kubernetes changes, aggregates them and apply to HAProxy.
 // All the changes must come through this function
 func (c *HAProxyController) SyncData() {
 	hadChanges := false
+	servicesToSync := make([]EndpointSyncEnvironment, 1)
 	for job := range c.eventChan {
 		ns := c.Store.GetNamespace(job.Namespace)
 		change := false
 		switch job.SyncType {
 		case COMMAND:
+			for _, s := range servicesToSync {
+				if s.Service != "" {
+					c.Store.SyncEndpoints(s.Namespace, s.Service, c.Client.SyncBackendSrvs)
+				}
+			}
+			servicesToSync = servicesToSync[:0]
+
 			c.restart, c.reload = c.auxCfgManager()
 			if hadChanges || c.reload || c.restart {
 				c.updateHAProxy()
@@ -118,6 +131,10 @@ func (c *HAProxyController) SyncData() {
 			change = c.Store.EventIngressClass(job.Data.(*store.IngressClass))
 		case ENDPOINTS:
 			change = c.Store.EventEndpoints(ns, job.Data.(*store.Endpoints), c.Client.SyncBackendSrvs)
+			service := job.Data.(*store.Endpoints).Service
+			if service != "" {
+				servicesToSync = append(servicesToSync, EndpointSyncEnvironment{Service: service, Namespace: ns})
+			}
 		case SERVICE:
 			change = c.Store.EventService(ns, job.Data.(*store.Service))
 		case CONFIGMAP:
